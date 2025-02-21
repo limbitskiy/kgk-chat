@@ -1,0 +1,15 @@
+// app global css in SCSS form
+:root {
+  --accent-color: blue;
+  --grey-bg: #f0f0f0;
+}
+
+.chat-fade-enter-active,
+.chat-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.chat-fade-enter-from,
+.chat-fade-leave-to {
+  opacity: 0;
+}
