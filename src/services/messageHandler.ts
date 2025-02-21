@@ -1,15 +1,22 @@
-import { fasBullseye } from '@quasar/extras/fontawesome-v6'
 import { useMainStore } from 'src/stores/main'
 import type { Contact, Message, User } from 'src/types'
 
 // handle web socket messages
 export const handleMessage = (data: {
   action: string
-  content: { id: number; payload: unknown; msg_id?: number }
+  content: { id: number; payload: unknown; msg_id?: number; status: string }
 }) => {
+  const mainStore = useMainStore()
+  const { onGetMessageData, onGetUsers, displayError, onCreatePrivateChat, onGetChats } = mainStore
+
+  if (data.content?.status !== 'OK') {
+    displayError(data.content.status)
+    return
+  }
+
   switch (data.action) {
     case 'get chats': {
-      useMainStore().setContacts(data.content.payload as { value: Contact }[])
+      onGetChats(data.content.payload as { value: Contact }[])
       break
     }
     // case 'enter to chat': {
@@ -17,7 +24,9 @@ export const handleMessage = (data: {
     //   break
     // }
     case 'get messages': {
-      onGetMessageData(data.content as { msg_id: number; payload: { value: Message }[] })
+      onGetMessageData(
+        data.content as { status: string; msg_id: number; payload: { value: Message }[] },
+      )
       break
     }
     case 'send notification': {
@@ -42,24 +51,6 @@ export const handleMessage = (data: {
 const onGetMessage = (message: { key: string; value: Message }[]) => {
   useMainStore().addMessage(message[0]!.value)
 }
-
-const onGetUsers = (userData: { key: string; value: User }[]) => {
-  useMainStore().setChatLoading(false)
-  useMainStore().setLoadedUsers(userData)
-}
-
-const onGetMessageData = (data: { msg_id: number; payload: { value: Message }[] }) => {
-  useMainStore().setCurrentDialog(data)
-}
-
-const onCreatePrivateChat = (data: { msg_id: number; payload: { value: Message }[] }) => {
-  useMainStore().startNewCurrentDialog(data)
-  useMainStore().setChatLoading(false)
-}
-
-// const onEnterChat = (data: unknown) => {
-//   console.log(data)
-// }
 
 const onSendNotification = (data: { value: { id: number; notify: string } }[]) => {
   const { id: contactId, notify: status } = data[0]!.value

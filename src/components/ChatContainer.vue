@@ -34,7 +34,6 @@
           </template> -->
         </q-input>
       </div>
-
       <!-- contact list -->
       <!-- make into it's own component -->
       <div class="contact-list-cnt" style="flex: 1; overflow: auto">
@@ -98,16 +97,20 @@
         </q-list>
       </div>
 
-      <connection-status :status="connectionStatus" :ws="wsConnected" />
+      <div class="bottom-statusbar" style="display: flex">
+        <connection-status :status="connectionStatus" :ws="wsConnected" />
+        <span>v.0.0.1</span>
+      </div>
     </div>
 
     <transition name="chat-fade" mode="out-in">
       <!-- body -->
+
       <div v-if="isChatLoading" class="chat-loader" style="display: grid; place-items: center">
         <DialogLoader />
       </div>
       <div
-        v-else-if="currentDialog"
+        v-else-if="currentDialog.data"
         class="current-dialog-cnt"
         ref="dialogCnt"
         :class="$style['current-dialog-cnt']"
@@ -154,22 +157,32 @@
         <span>Выберите чат</span>
       </div>
     </transition>
+
+    <q-dialog :model-value="!!error" position="top" seamless>
+      <q-card style="width: 350px; background-color: #b73d3d; color: white">
+        <!-- <q-linear-progress :value="0.6" color="pink" /> -->
+
+        <q-card-section class="row items-center no-wrap">
+          <div>
+            <div class="text-weight-bold">{{ error }}</div>
+            <!-- <div class="text-grey">Fitz & The Tantrums</div> -->
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
 <script setup lang="ts" module>
-import { useTemplateRef, ref, watch, nextTick, onMounted } from 'vue'
+import { useTemplateRef, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useElementSize } from '@vueuse/core'
-import { useAuthStore } from 'src/stores/auth'
 import { useMainStore } from 'src/stores/main'
 import { storeToRefs } from 'pinia'
 import ChatMessage from 'src/components/ChatMessage.vue'
 import ConnectionStatus from 'src/components/ConnectionStatus.vue'
 import type { Contact } from 'src/types'
 import DialogLoader from 'src/components/DialogLoader/DialogLoader.vue'
-import { truncate } from 'fs/promises'
 
-const authStore = useAuthStore()
 const mainStore = useMainStore()
 
 const {
@@ -180,16 +193,18 @@ const {
   isChatLoading,
   cachedUsers,
   chatHeaderData,
+  error,
+  connectionStatus,
 } = storeToRefs(mainStore)
 const {
-  fetchContacts,
+  init,
   loadMessages,
   searchContact,
   setChatLoading,
   setChatHeaderData,
   sendMsg,
   createPrivateChat,
-  setCurrentDialog,
+  fetchContacts,
 } = mainStore
 
 const dialogCnt = useTemplateRef('dialogCnt')
@@ -198,8 +213,7 @@ const { height: dialogCntHeight } = useElementSize(dialogCnt)
 
 const searchMode = ref(false)
 const searchResults = ref<Contact[]>([])
-const connectionStatus = ref<'connecting' | 'connected' | 'error'>('connecting')
-const connected = ref(false)
+
 const contactSearchString = ref('')
 const message = ref('')
 
@@ -229,32 +243,12 @@ const onSearchFocus = () => {
 const onContactMode = () => {
   contactSearchString.value = ''
   searchMode.value = false
+  fetchContacts()
 }
 
 const onSendMessage = () => {
   sendMsg(message.value)
   message.value = ''
-}
-
-const init = () => {
-  connectionStatus.value = 'connecting'
-  void authStore
-    .appLogin()
-    .then(() => {
-      connectionStatus.value = 'connected'
-      connected.value = true
-
-      if (!contacts.value.length) {
-        fetchContacts()
-      }
-    })
-    .catch((err) => {
-      connectionStatus.value = 'error'
-
-      setTimeout(() => {
-        init()
-      }, 5000)
-    })
 }
 
 init()
@@ -274,7 +268,7 @@ onMounted(() => {
     async () => {
       if (!currentDialog.value) return
 
-      const length = currentDialog.value.messages.length
+      const length = messages.value?.length
       await nextTick()
       setTimeout(() => {
         // virtualMessagesRef.value.scrollTo(length - 1, 'start')

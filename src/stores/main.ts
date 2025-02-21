@@ -1,5 +1,5 @@
 import { defineStore, acceptHMRUpdate } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   getContacts,
   contactSearch,
@@ -19,21 +19,37 @@ export const useMainStore = defineStore('main', () => {
   const state = ref({
     user: <User | null>null,
     contacts: useLocalStorage<Contact[]>('chat-contacts', []),
-    currentDialog: ref<CurrentDialog>(),
+    currentDialog: ref<{
+      loading: boolean
+      usersLoaded: boolean
+      messagesLoaded: boolean
+      data: CurrentDialog | null
+    }>({
+      loading: false,
+      usersLoaded: false,
+      messagesLoaded: false,
+      data: null,
+    }),
+    error: ref({
+      text: <string | null>null,
+      timeout: <ReturnType<typeof setTimeout> | null>null,
+    }),
     wsConnected: ref(false),
-    isChatLoading: ref(false),
+    connectionStatus: ref<'connecting' | 'connected' | 'error'>('connecting'),
     cachedUsers: useLocalStorage<{ [key: number]: User }>('cached-users', {}),
     chatHeaderData: ref({ title: '', subtitle: '' }),
   })
 
   const user = computed(() => state.value.user)
-  const contacts = computed(() => state.value.contacts)
-  const messages = computed(() => state.value.currentDialog?.messages)
+  const contacts = computed(() => state.value.contacts.sort((a, b) => a.name.localeCompare(b.name)))
+  const messages = computed(() => state.value.currentDialog?.data?.messages)
   const currentDialog = computed(() => state.value.currentDialog)
   const wsConnected = computed(() => state.value.wsConnected)
-  const isChatLoading = computed(() => state.value.isChatLoading)
+  const isChatLoading = computed(() => state.value.currentDialog.loading)
   const cachedUsers = computed(() => state.value.cachedUsers)
   const chatHeaderData = computed(() => state.value.chatHeaderData)
+  const error = computed(() => state.value.error.text)
+  const connectionStatus = computed(() => state.value.connectionStatus)
 
   const setChatHeaderData = ({ title, subtitle }: { title?: string; subtitle?: string }) => {
     if (title) {
@@ -45,14 +61,24 @@ export const useMainStore = defineStore('main', () => {
     }
   }
 
-  const setLoadedUsers = (users: { key: string; value: User }[]) => {
-    users.forEach((item) => {
+  const onGetUsers = (userData: { key: string; value: User }[]) => {
+    userData.forEach((item) => {
       state.value.cachedUsers[item.value.id] = item.value
     })
+    state.value.currentDialog.usersLoaded = true
   }
 
   const setChatLoading = (value: boolean) => {
-    state.value.isChatLoading = value
+    resetCurrentDialog()
+    state.value.currentDialog.loading = true
+    watchCurrentDialog()
+  }
+
+  const resetCurrentDialog = () => {
+    state.value.currentDialog.loading = false
+    state.value.currentDialog.usersLoaded = false
+    state.value.currentDialog.messagesLoaded = false
+    state.value.currentDialog.data = null
   }
 
   const setUser = (user: User) => {
@@ -63,40 +89,32 @@ export const useMainStore = defineStore('main', () => {
     state.value.wsConnected = value
   }
 
-  // collapse into a single fn
-  const setCurrentDialog = (data: { msg_id: number; payload: { value: Message }[] }) => {
+  const setCurrentDialog = (id: number, messages: Message[]) => {
     const dialogObject = {
-      id: data.msg_id,
-      name: 'Название беседы/контакта',
-      messages: data.payload.map((msg) => msg.value),
+      id,
+      messages: <Message[]>[],
     }
 
-    const messages = data.payload.map((msg) => msg.value)
-    const ids = getUserIdsFromMessages(messages)
-    const uncachedUsers = ids.filter((id) => !cachedUsers.value[id])
+    if (messages?.length) {
+      dialogObject.messages = messages
 
-    if (uncachedUsers?.length) {
-      fetchUsers(uncachedUsers)
+      const ids = getUserIdsFromMessages(messages)
+      const uncachedUsers = ids.filter((id) => !isUserCached(id))
+
+      if (uncachedUsers?.length) {
+        fetchUsers(uncachedUsers)
+      } else {
+        state.value.currentDialog.usersLoaded = true
+      }
     } else {
-      setChatLoading(false)
+      state.value.currentDialog.usersLoaded = true
     }
 
-    state.value.currentDialog = dialogObject
+    state.value.currentDialog.data = dialogObject
   }
 
-  // collapse into a single fn
-  const startNewCurrentDialog = (data: { msg_id: number; payload: { value: Message }[] }) => {
-    const dialogObject = {
-      id: data.msg_id,
-      name: 'Название беседы/контакта',
-      messages: [],
-    }
-
-    state.value.currentDialog = dialogObject
-  }
-
-  const setContacts = (contacts: { value: Contact }[]) => {
-    state.value.contacts = contacts.map((contact) => contact.value)
+  const setContacts = (contacts: Contact[]) => {
+    state.value.contacts = contacts
   }
 
   const addContact = (contact: Contact) => {
@@ -104,7 +122,7 @@ export const useMainStore = defineStore('main', () => {
   }
 
   const addMessage = (message: Message) => {
-    state.value.currentDialog?.messages.push(message)
+    state.value.currentDialog.data?.messages.push(message)
   }
 
   const fetchContacts = () => {
@@ -190,7 +208,7 @@ export const useMainStore = defineStore('main', () => {
             user.value!.id,
             authStore.token!,
             authStore.pubsub!,
-            currentDialog.value?.id,
+            currentDialog.value.data!.id,
             message,
           )
         }
@@ -215,6 +233,80 @@ export const useMainStore = defineStore('main', () => {
     void chatRequest({ type: 'get-users', payload: reformatted })
   }
 
+  const onGetMessageData = (data: {
+    status: string
+    msg_id: number
+    payload: { value: Message }[]
+  }) => {
+    const messages = data.payload.map((msg) => msg.value)
+
+    setCurrentDialog(data.msg_id, messages)
+
+    state.value.currentDialog.messagesLoaded = true
+  }
+
+  const watchCurrentDialog = () => {
+    const unwatch = watch(
+      currentDialog,
+      () => {
+        if (
+          currentDialog.value.data &&
+          currentDialog.value.messagesLoaded &&
+          currentDialog.value.usersLoaded
+        ) {
+          state.value.currentDialog.loading = false
+          unwatch()
+        }
+      },
+      {
+        deep: true,
+      },
+    )
+  }
+
+  const displayError = (error: string) => {
+    state.value.error.text = error
+
+    if (state.value.error.timeout) {
+      clearTimeout(state.value.error.timeout)
+    }
+
+    state.value.error.timeout = setTimeout(() => {
+      state.value.error.text = null
+    }, 3000)
+  }
+
+  const onCreatePrivateChat = (data: { msg_id: number; payload: { value: Message }[] }) => {
+    setCurrentDialog(data.msg_id, [])
+    state.value.currentDialog.messagesLoaded = true
+  }
+
+  const onGetChats = (data: { value: Contact }[]) => {
+    setContacts(data.map((item) => item.value))
+  }
+
+  const init = () => {
+    state.value.connectionStatus = 'connecting'
+
+    void authStore
+      .appLogin()
+      .then(() => {
+        state.value.connectionStatus = 'connected'
+
+        fetchContacts()
+      })
+      .catch((err) => {
+        state.value.connectionStatus = 'error'
+        displayError(err)
+
+        setTimeout(() => {
+          init()
+        }, 5000)
+      })
+  }
+
+  const isUserCached = (id: number) => !!cachedUsers.value[id]
+
   const updateStatus = (contactId: number, status: string) => {}
 
   return {
@@ -226,6 +318,8 @@ export const useMainStore = defineStore('main', () => {
     isChatLoading,
     cachedUsers,
     chatHeaderData,
+    error,
+    connectionStatus,
     setUser,
     setContacts,
     addMessage,
@@ -237,11 +331,15 @@ export const useMainStore = defineStore('main', () => {
     loadMessages,
     setWsConnected,
     setChatLoading,
-    setLoadedUsers,
     setChatHeaderData,
     sendMsg,
     createPrivateChat,
-    startNewCurrentDialog,
+    onGetMessageData,
+    onGetUsers,
+    init,
+    displayError,
+    onCreatePrivateChat,
+    onGetChats,
   }
 })
 

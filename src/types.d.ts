@@ -30,7 +30,7 @@ export interface Message {
 
 export interface CurrentDialog {
   id: number
-  name: string
+  // name: string
   messages: Message[]
   lastSeen?: number
   members?: number

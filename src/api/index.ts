@@ -1,12 +1,6 @@
 import axios from 'axios'
 import { API_BASE_URL, API_WS_URL, API_ENDPOINTS, TOKEN } from 'src/constants'
 
-interface ChatRequest {
-  token: string
-  pubsub: string
-  payload: Record<string, unknown>
-}
-
 export const login = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}sputnik/login`, {
@@ -92,42 +86,6 @@ export const getMessages = async (
     return false
   }
 }
-
-// export const enterChat = async (
-//   senderId: number,
-//   token: string,
-//   chatId: number,
-//   pubsub: string,
-// ) => {
-//   try {
-//     await axios.post(
-//       `${API_BASE_URL}auth/req?pubsub=${pubsub}`,
-//       {
-//         pload_type: 'enter to chat',
-//         sender_id: senderId,
-//         destination_id: 1,
-//         payload: [
-//           {
-//             key: 'cmd',
-//             value: {
-//               ptype: 'enter to chat',
-//               chat_id: chatId,
-//               pubsub: pubsub,
-//             },
-//           },
-//         ],
-//       },
-//       {
-//         headers: { Authorization: `Bearer ${token}` },
-//       },
-//     )
-
-//     return true
-//   } catch (error) {
-//     console.error(error)
-//     return false
-//   }
-// }
 
 export const getUsers = async (senderId: number, token: string, pubsub: string, data: []) => {
   try {
@@ -225,6 +183,48 @@ export const startPrivateChat = async (
     return false
   }
 }
+
+// interface ChatRequest {
+//   token: string
+//   pubsub: string
+//   payload: Record<string, unknown>
+// }
+
+// export const enterChat = async (
+//   senderId: number,
+//   token: string,
+//   chatId: number,
+//   pubsub: string,
+// ) => {
+//   try {
+//     await axios.post(
+//       `${API_BASE_URL}auth/req?pubsub=${pubsub}`,
+//       {
+//         pload_type: 'enter to chat',
+//         sender_id: senderId,
+//         destination_id: 1,
+//         payload: [
+//           {
+//             key: 'cmd',
+//             value: {
+//               ptype: 'enter to chat',
+//               chat_id: chatId,
+//               pubsub: pubsub,
+//             },
+//           },
+//         ],
+//       },
+//       {
+//         headers: { Authorization: `Bearer ${token}` },
+//       },
+//     )
+
+//     return true
+//   } catch (error) {
+//     console.error(error)
+//     return false
+//   }
+// }
 
 // const chatRequest = async ({ token, pubsub, payload }: ChatRequest) => {
 //   try {
