@@ -15,10 +15,10 @@ export interface User {
 export interface Contact {
   id: number
   name: string
-  surname?: string
-  status?: 'online' | 'offline'
+  status: 'online' | 'offline'
   priv_id: number
-  chat_type?: string
+  chat_type: string
+  unread_msgs_count: number
 }
 
 export interface Message {
@@ -28,6 +28,7 @@ export interface Message {
   stamp: number
   sender_id: number
   created_at: number
+  chat_id: number
 }
 
 export interface CurrentDialog {

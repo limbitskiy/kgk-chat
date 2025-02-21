@@ -100,6 +100,10 @@
               <q-item-label>{{ contact.name }}</q-item-label>
               <!-- <q-item-label caption lines="1">{{ contact.email }}</q-item-label> -->
             </q-item-section>
+
+            <q-item-section v-if="contact.unread_msgs_count" avatar>
+              <q-badge rounded color="blue" :label="contact.unread_msgs_count" />
+            </q-item-section>
           </q-item>
         </q-list>
       </div>

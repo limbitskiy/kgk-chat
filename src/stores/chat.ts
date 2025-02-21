@@ -267,6 +267,7 @@ export const useChatStore = defineStore('chat', () => {
       })
     })
 
+    // cache users since we have them
     console.log(uniqueUsers)
 
     Object.keys(uniqueUsers).forEach((key) => {
@@ -279,8 +280,18 @@ export const useChatStore = defineStore('chat', () => {
     console.log(contacts.value)
   }
 
-  const onGetMessage = (message: { key: string; value: Message }[]) => {
-    addMessage(message[0]!.value)
+  const onGetMessage = (messageData: { key: string; value: Message }[]) => {
+    const message = messageData[0]!.value
+
+    if (message.chat_id === currentDialog.value.data?.id) {
+      addMessage(message)
+    } else {
+      const foundContact = contacts.value.find((contact: Contact) => contact.id === message.chat_id)
+
+      if (foundContact) {
+        foundContact.unread_msgs_count += 1
+      }
+    }
   }
 
   const onSendNotification = (
