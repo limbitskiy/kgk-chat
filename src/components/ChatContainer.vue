@@ -51,9 +51,10 @@
             v-for="contact in searchResults"
             :key="contact.id"
             class="q-my-sm"
+            :active="contact.id === selectedSearchResultId"
             clickable
             v-ripple
-            @click="() => onStartChat(contact)"
+            @click="() => onSearchResultClick(contact)"
           >
             <q-item-section avatar>
               <q-avatar color="primary" text-color="white">
@@ -79,14 +80,20 @@
             v-for="contact in contacts"
             :key="contact.id"
             class="q-my-sm"
+            :active="contact.id === selectedContactId"
             clickable
             v-ripple
-            @click="() => onEnterChat(contact)"
+            @click="() => onContactClick(contact)"
           >
             <q-item-section avatar>
               <q-avatar color="primary" text-color="white">
                 {{ contact.name[0]?.toUpperCase() }}
               </q-avatar>
+              <div
+                v-if="contact.status === 'online'"
+                class="online-status"
+                :class="$style['online-indicator']"
+              ></div>
             </q-item-section>
 
             <q-item-section>
@@ -179,19 +186,40 @@
         </q-card-section>
       </q-card>
     </q-dialog>
+
+    <div
+      class="debug-window"
+      style="
+        border: 1px solid;
+        padding: 1rem;
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        display: flex;
+        flex-direction: column;
+      "
+    >
+      <span>selected id: {{ selectedContactId ?? 'null' }}</span>
+      <span>current dialog id: {{ currentDialog?.data?.id ?? 'null' }}</span>
+      <span>current dialog users loaded: {{ currentDialog?.usersLoaded }}</span>
+      <span>current dialog messages loaded: {{ currentDialog?.messagesLoaded }}</span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts" module>
 import { useTemplateRef, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useElementSize } from '@vueuse/core'
-import { useMainStore } from 'src/stores/main'
 import { storeToRefs } from 'pinia'
+
 import ChatMessage from 'src/components/ChatMessage.vue'
 import ConnectionStatus from 'src/components/ConnectionStatus.vue'
-import type { Contact } from 'src/types'
 import DialogLoader from 'src/components/DialogLoader/DialogLoader.vue'
+
+import { useMainStore } from 'src/stores/main'
 import { version } from '../../package.json'
+
+import type { Contact, User } from 'src/types'
 
 const store = useMainStore()
 
@@ -207,7 +235,7 @@ const dialogCnt = useTemplateRef('dialogCnt')
 const { height: dialogCntHeight } = useElementSize(dialogCnt)
 
 const searchMode = ref(false)
-const searchResults = ref<Contact[]>([])
+const searchResults = ref<User[]>([])
 
 const contactSearchString = ref('')
 const message = ref('')
@@ -215,20 +243,43 @@ const message = ref('')
 const virtualScrollerRef = ref()
 const virtualListIndex = ref(0)
 
-const onVirtualScroll = ({ index }: { index: number }) => {
+const selectedContactId = ref()
+const selectedSearchResultId = ref()
+
+const onVirtualScroll = ({ index, direction }: { index: number; direction: string }) => {
+  // if just loaded
+  if (index === 0 && direction === 'increase') {
+    virtualScrollerRef.value?.scrollTo(messages?.value.length - 1, 'start')
+  }
   virtualListIndex.value = index
 }
 
-const onEnterChat = ({ id, name }: { id: number; name: string }) => {
+const onSearchResultClick = (searchResult: User) => {
+  // console.log(searchResult)
+  // console.log(contacts?.value)
+
   setChatLoading(true)
-  loadMessages(id)
-  setChatHeaderData({ title: name })
+
+  selectedSearchResultId.value = searchResult.id
+
+  const contact = getContactByUser(searchResult)
+
+  if (contact) {
+    console.log(`enter existing chat with a guy`)
+    loadMessages(contact.id)
+  } else {
+    console.log(`create a new chat with a guy`)
+    createPrivateChat(contact.id)
+  }
+
+  setChatHeaderData({ title: searchResult.name })
 }
 
-const onStartChat = ({ id, name }: { id: number; name: string }) => {
+const onContactClick = (contact: Contact) => {
   setChatLoading(true)
-  createPrivateChat(id)
-  setChatHeaderData({ title: name })
+  loadMessages(contact.id)
+  selectedContactId.value = contact.id
+  setChatHeaderData({ title: contact.name })
 }
 
 const onSearchFocus = () => {
@@ -246,6 +297,19 @@ const onSendMessage = () => {
   message.value = ''
 }
 
+const isUser = (data: User | Contact) => {
+  if ('profile' in data) {
+    return true
+  }
+  return false
+}
+
+const getContactByUser = (user: User) => {
+  return contacts?.value
+    .filter((contact: Contact) => contact.chat_type === 'private')
+    .find((contact: Contact) => contact.priv_id === user.id)
+}
+
 init()
 
 watch(contactSearchString, async (val) => {
@@ -254,26 +318,6 @@ watch(contactSearchString, async (val) => {
     searchResults.value = results
   } else {
     searchResults.value = []
-  }
-})
-
-onMounted(() => {
-  if (messages) {
-    watch(
-      () => messages.value?.length,
-      async (val) => {
-        if (!val || !currentDialog?.value) return
-
-        const length = messages?.value?.length
-
-        await nextTick()
-
-        setTimeout(() => {
-          virtualScrollerRef.value.scrollTo(length - 1, 'start')
-        }, 300)
-      },
-      { deep: true },
-    )
   }
 })
 </script>

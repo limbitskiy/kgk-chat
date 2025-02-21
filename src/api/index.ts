@@ -184,6 +184,17 @@ export const startPrivateChat = async (
   }
 }
 
+export const getChatParticipants = async (token: string, chatId: number) => {
+  try {
+    return await axios.get(`${API_BASE_URL}auth/usersByChat?chat_id=${chatId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch (error) {
+    console.error(error)
+    return false
+  }
+}
+
 // interface ChatRequest {
 //   token: string
 //   pubsub: string

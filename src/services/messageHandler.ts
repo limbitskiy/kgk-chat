@@ -24,7 +24,7 @@ export const handleMessage = (data: {
 
   switch (data.action) {
     case 'get chats': {
-      onGetChats(data.content.payload as { value: Contact }[])
+      void onGetChats(data.content.payload as { value: Contact }[])
       break
     }
 
@@ -35,7 +35,9 @@ export const handleMessage = (data: {
       break
     }
     case 'send notification': {
-      onSendNotification(data.content.payload as { value: { id: number; notify: string } }[])
+      onSendNotification(
+        data.content.payload as { value: { sender_id: number; notify: 'online' | 'offline' } }[],
+      )
       break
     }
     case 'get users': {

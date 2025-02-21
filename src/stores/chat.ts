@@ -7,6 +7,7 @@ import {
   getUsers,
   sendMessage,
   startPrivateChat,
+  getChatParticipants,
 } from 'src/api'
 import { useAuthStore } from 'src/stores/auth'
 import { useMainStore } from 'src/stores/main'
@@ -110,13 +111,6 @@ export const useChatStore = defineStore('chat', () => {
     void chatRequest({ type: 'send-message', message })
   }
 
-  const createPrivateChat = (otherUserId: number) => {
-    if (!cachedUsers.value[otherUserId]) {
-      fetchUsers([otherUserId])
-    }
-    void chatRequest({ type: 'start-private-chat', payload: otherUserId })
-  }
-
   const searchContact = async (query: string) => {
     const results = await chatRequest({ type: 'contact-search', query })
     return results.filter((resultUser: User) => resultUser.id != mainStore.user!.id)
@@ -142,6 +136,10 @@ export const useChatStore = defineStore('chat', () => {
 
       case 'contact-search': {
         return await contactSearch(query, authStore.token!)
+      }
+
+      case 'get-chat-participants': {
+        return await getChatParticipants(authStore.token!, chatId!)
       }
 
       case 'get-messages': {
@@ -228,26 +226,69 @@ export const useChatStore = defineStore('chat', () => {
     )
   }
 
+  const createPrivateChat = (otherUserId: number) => {
+    if (!isUserCached(otherUserId)) {
+      fetchUsers([otherUserId])
+    }
+    void chatRequest({ type: 'start-private-chat', payload: otherUserId })
+  }
+
   const onCreatePrivateChat = (data: { msg_id: number; payload: { value: Message }[] }) => {
     setCurrentDialog(data.msg_id, [])
     state.value.currentDialog.messagesLoaded = true
   }
 
-  const onGetChats = (data: { value: Contact }[]) => {
+  const onGetChats = async (data: { value: Contact }[]) => {
     setContacts(data.map((item) => item.value))
 
-    const users = data.filter((item) => item.value)
-    // update user statuses
+    // get user ids
+    const chatIds = data.map((item) => item.value.id)
+
+    const uniqueUsers: { [key: number]: User } = {}
+
+    // request user data
+    const _results = await Promise.all(
+      chatIds.map((id) => chatRequest({ type: 'get-chat-participants', chatId: id })),
+    )
+
+    interface ResultData {
+      data: User[]
+    }
+
+    const results = _results as ResultData[]
+
+    results.forEach((resultData) => {
+      const chatParticipants = resultData.data
+
+      chatParticipants.forEach((user) => {
+        if (user.status === 'online' && user.id != mainStore.user!.id) {
+          uniqueUsers[user.id] = user
+        }
+      })
+    })
+
+    console.log(uniqueUsers)
+
+    Object.keys(uniqueUsers).forEach((key) => {
+      const foundContact = findContactByUser(+key)
+      if (foundContact) {
+        foundContact.status = 'online'
+      }
+    })
+
+    console.log(contacts.value)
   }
 
   const onGetMessage = (message: { key: string; value: Message }[]) => {
     addMessage(message[0]!.value)
   }
 
-  const onSendNotification = (data: { value: { id: number; notify: string } }[]) => {
-    const { id: contactId, notify: status } = data[0]!.value
+  const onSendNotification = (
+    data: { value: { sender_id: number; notify: 'online' | 'offline' } }[],
+  ) => {
+    const { sender_id: contactId, notify: status } = data[0]!.value
 
-    if (!contactId || !status) return
+    if (!contactId || !status || contactId === mainStore.user!.id) return
 
     updateStatus(contactId, status)
   }
@@ -259,7 +300,16 @@ export const useChatStore = defineStore('chat', () => {
     state.value.currentDialog.data = null
   }
 
-  const updateStatus = (contactId: number, status: string) => {}
+  const updateStatus = (contactId: number, status: 'online' | 'offline') => {
+    const foundContact = findContactByUser(contactId)
+    if (foundContact) {
+      foundContact.status = status
+    }
+  }
+
+  const findContactByUser = (userId: number) => {
+    return contacts.value.find((contact) => contact.priv_id === userId)
+  }
 
   const isUserCached = (id: number) => !!cachedUsers.value[id]
 

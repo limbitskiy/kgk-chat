@@ -6,7 +6,7 @@ import { handleStatus } from './statusHandler'
 const socket = ref<WebSocket | null>(null)
 
 const connect = (pubsub: string) => {
-  if (socket.value) return
+  if (socket.value || !pubsub) return
 
   socket.value = new WebSocket(`${API_WS_URL}/subscribe/${pubsub}`)
 

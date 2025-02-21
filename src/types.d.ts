@@ -17,6 +17,8 @@ export interface Contact {
   name: string
   surname?: string
   status?: 'online' | 'offline'
+  priv_id: number
+  chat_type?: string
 }
 
 export interface Message {

@@ -13,3 +13,10 @@
 .chat-fade-leave-to {
   opacity: 0;
 }
+
+// active state
+.q-item.q-router-link--active,
+.q-item--active {
+  background-color: #62badf42;
+  color: #222;
+}
