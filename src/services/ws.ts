@@ -23,6 +23,7 @@ const connect = (pubsub: string) => {
 
   socket.value.onclose = () => {
     console.log('❌ WebSocket отключен, пытаюсь переподключиться...')
+    socket.value = null
     setTimeout(connect, 3000)
     handleStatus('closed')
   }

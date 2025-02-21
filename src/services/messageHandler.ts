@@ -6,8 +6,16 @@ export const handleMessage = (data: {
   action: string
   content: { id: number; payload: unknown; msg_id?: number; status: string }
 }) => {
-  const mainStore = useMainStore()
-  const { onGetMessageData, onGetUsers, displayError, onCreatePrivateChat, onGetChats } = mainStore
+  const store = useMainStore()
+  const { displayError } = store
+  const {
+    onGetMessageData,
+    onGetUsers,
+    onCreatePrivateChat,
+    onGetChats,
+    onGetMessage,
+    onSendNotification,
+  } = store.chat
 
   if (data.content?.status !== 'OK') {
     displayError(data.content.status)
@@ -19,10 +27,7 @@ export const handleMessage = (data: {
       onGetChats(data.content.payload as { value: Contact }[])
       break
     }
-    // case 'enter to chat': {
-    //   onEnterChat(data.content.payload)
-    //   break
-    // }
+
     case 'get messages': {
       onGetMessageData(
         data.content as { status: string; msg_id: number; payload: { value: Message }[] },
@@ -46,16 +51,4 @@ export const handleMessage = (data: {
       break
     }
   }
-}
-
-const onGetMessage = (message: { key: string; value: Message }[]) => {
-  useMainStore().addMessage(message[0]!.value)
-}
-
-const onSendNotification = (data: { value: { id: number; notify: string } }[]) => {
-  const { id: contactId, notify: status } = data[0]!.value
-
-  if (!contactId || !status) return
-
-  useMainStore().updateStatus(contactId, status)
 }

@@ -7,14 +7,17 @@ import wsService from 'src/services/ws'
 export const useAuthStore = defineStore('auth', () => {
   const mainStore = useMainStore()
 
+  // STATE
   const state = ref({
     token: <string | null>null,
     pubsub: <string | null>null,
   })
 
+  // GETTERS
   const token = computed(() => state.value.token)
   const pubsub = computed(() => state.value.pubsub)
 
+  // SETTERS
   const setToken = (token: string) => {
     state.value.token = token
   }
@@ -23,11 +26,9 @@ export const useAuthStore = defineStore('auth', () => {
     state.value.pubsub = pubsub
   }
 
-  const register = async () => {
-    // await makeRequest()
-  }
+  // ACTIONS
 
-  // separate http from ws connection
+  // TODO: separate http from ws connection
   const appLogin = async () => {
     const response = await login()
 
@@ -49,6 +50,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const appLogout = async () => {
     // await makeRequest()
+  }
+
+  const register = async () => {
+    // not implemented yet
   }
   return { pubsub, token, register, appLogin, appLogout }
 })

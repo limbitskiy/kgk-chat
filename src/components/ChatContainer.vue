@@ -97,9 +97,18 @@
         </q-list>
       </div>
 
-      <div class="bottom-statusbar" style="display: flex">
+      <div
+        class="bottom-statusbar"
+        style="
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          padding-inline: 0.5rem;
+          background-color: #e3e3e3;
+        "
+      >
         <connection-status :status="connectionStatus" :ws="wsConnected" />
-        <span>v.0.0.1</span>
+        <span style="font-size: 12px">v.{{ version }}</span>
       </div>
     </div>
 
@@ -129,7 +138,7 @@
 
         <div class="current-dialog-cnt__messages" :class="$style['current-dialog-messages']">
           <q-virtual-scroll
-            ref="virtualMessagesRef"
+            ref="virtualScrollerRef"
             :style="`height: ${dialogCntHeight - 137}px`"
             :items="messages"
             :virtual-scroll-item-size="72"
@@ -182,30 +191,16 @@ import ChatMessage from 'src/components/ChatMessage.vue'
 import ConnectionStatus from 'src/components/ConnectionStatus.vue'
 import type { Contact } from 'src/types'
 import DialogLoader from 'src/components/DialogLoader/DialogLoader.vue'
+import { version } from '../../package.json'
 
-const mainStore = useMainStore()
+const store = useMainStore()
 
-const {
-  contacts,
-  currentDialog,
-  messages,
-  wsConnected,
-  isChatLoading,
-  cachedUsers,
-  chatHeaderData,
-  error,
-  connectionStatus,
-} = storeToRefs(mainStore)
-const {
-  init,
-  loadMessages,
-  searchContact,
-  setChatLoading,
-  setChatHeaderData,
-  sendMsg,
-  createPrivateChat,
-  fetchContacts,
-} = mainStore
+const { wsConnected, chatHeaderData, error, connectionStatus } = storeToRefs(store)
+const { init, setChatHeaderData } = store
+// @ts-expect-error error
+const { contacts, currentDialog, messages, isChatLoading, cachedUsers } = storeToRefs(store.chat)
+const { loadMessages, searchContact, setChatLoading, sendMsg, createPrivateChat, fetchContacts } =
+  store.chat
 
 const dialogCnt = useTemplateRef('dialogCnt')
 
@@ -217,7 +212,7 @@ const searchResults = ref<Contact[]>([])
 const contactSearchString = ref('')
 const message = ref('')
 
-const virtualMessagesRef = ref()
+const virtualScrollerRef = ref()
 const virtualListIndex = ref(0)
 
 const onVirtualScroll = ({ index }: { index: number }) => {
@@ -263,19 +258,23 @@ watch(contactSearchString, async (val) => {
 })
 
 onMounted(() => {
-  watch(
-    messages,
-    async () => {
-      if (!currentDialog.value) return
+  if (messages) {
+    watch(
+      () => messages.value?.length,
+      async (val) => {
+        if (!val || !currentDialog?.value) return
 
-      const length = messages.value?.length
-      await nextTick()
-      setTimeout(() => {
-        // virtualMessagesRef.value.scrollTo(length - 1, 'start')
-      }, 100)
-    },
-    { deep: true },
-  )
+        const length = messages?.value?.length
+
+        await nextTick()
+
+        setTimeout(() => {
+          virtualScrollerRef.value.scrollTo(length - 1, 'start')
+        }, 300)
+      },
+      { deep: true },
+    )
+  }
 })
 </script>
 
