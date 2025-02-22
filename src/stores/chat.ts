@@ -98,13 +98,12 @@ export const useChatStore = defineStore('chat', () => {
     void getContacts(mainStore.user!.id, authStore.token!, authStore.pubsub!)
   }
 
-  const loadMessages = (chatId: number) => {
-    if (!chatId) {
-      console.error(`No chatId provided`)
-      return
-    }
-
-    void chatRequest({ type: 'get-messages', chatId })
+  const loadMessages = (contact: Contact) => {
+    void chatRequest({
+      type: 'get-messages',
+      chatId: contact.id,
+      messageId: contact.last_message_id,
+    })
   }
 
   const sendMsg = (message: string) => {
@@ -122,12 +121,14 @@ export const useChatStore = defineStore('chat', () => {
     query = '',
     payload = undefined,
     message = '',
+    messageId = 0,
   }: {
     type: string
     chatId?: number
     query?: string
     payload?: unknown
     message?: string
+    messageId?: number
   }) => {
     switch (type) {
       // case 'enter-chat': {
@@ -143,7 +144,13 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       case 'get-messages': {
-        return await getMessages(mainStore.user!.id, authStore.token!, chatId!, authStore.pubsub!)
+        return await getMessages(
+          mainStore.user!.id,
+          authStore.token!,
+          chatId!,
+          authStore.pubsub!,
+          messageId,
+        )
       }
 
       case 'get-users': {
@@ -195,7 +202,7 @@ export const useChatStore = defineStore('chat', () => {
     void chatRequest({ type: 'get-users', payload: reformatted })
   }
 
-  const onGetMessageData = (data: {
+  const onGetMessages = (data: {
     status: string
     msg_id: number
     payload: { value: Message }[]
@@ -267,7 +274,7 @@ export const useChatStore = defineStore('chat', () => {
       })
     })
 
-    // cache users since we have them
+    // could cache users since we have them
     console.log(uniqueUsers)
 
     Object.keys(uniqueUsers).forEach((key) => {
@@ -340,7 +347,7 @@ export const useChatStore = defineStore('chat', () => {
     setChatLoading,
     sendMsg,
     createPrivateChat,
-    onGetMessageData,
+    onGetMessages,
     onGetUsers,
     onGetMessage,
     onCreatePrivateChat,

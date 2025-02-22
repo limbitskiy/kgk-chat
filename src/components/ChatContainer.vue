@@ -270,7 +270,7 @@ const onSearchResultClick = (searchResult: User) => {
 
   if (contact) {
     console.log(`enter existing chat with a guy`)
-    loadMessages(contact.id)
+    loadMessages(contact)
   } else {
     console.log(`create a new chat with a guy`)
     createPrivateChat(contact.id)
@@ -281,7 +281,7 @@ const onSearchResultClick = (searchResult: User) => {
 
 const onContactClick = (contact: Contact) => {
   setChatLoading(true)
-  loadMessages(contact.id)
+  loadMessages(contact)
   selectedContactId.value = contact.id
   setChatHeaderData({ title: contact.name })
 }

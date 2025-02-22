@@ -55,6 +55,7 @@ export const getMessages = async (
   token: string,
   chatId: number,
   pubsub: string,
+  messageId: number,
 ) => {
   try {
     await axios.post(
@@ -68,7 +69,7 @@ export const getMessages = async (
             key: 'get messages',
             value: {
               chat_id: chatId,
-              initial_msg_id: 1,
+              initial_msg_id: messageId,
               before: 20,
               after: 20,
             },

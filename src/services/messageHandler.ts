@@ -9,7 +9,7 @@ export const handleMessage = (data: {
   const store = useMainStore()
   const { displayError } = store
   const {
-    onGetMessageData,
+    onGetMessages,
     onGetUsers,
     onCreatePrivateChat,
     onGetChats,
@@ -29,25 +29,29 @@ export const handleMessage = (data: {
     }
 
     case 'get messages': {
-      onGetMessageData(
+      onGetMessages(
         data.content as { status: string; msg_id: number; payload: { value: Message }[] },
       )
       break
     }
+
     case 'send notification': {
       onSendNotification(
         data.content.payload as { value: { sender_id: number; notify: 'online' | 'offline' } }[],
       )
       break
     }
+
     case 'get users': {
       onGetUsers(data.content.payload as { key: string; value: User }[])
       break
     }
+
     case 'send message': {
       onGetMessage(data.content.payload as { key: string; value: Message }[])
       break
     }
+
     case 'create private chat': {
       onCreatePrivateChat(data.content as { msg_id: number; payload: { value: Message }[] })
       break

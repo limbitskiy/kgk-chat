@@ -19,6 +19,7 @@ export interface Contact {
   priv_id: number
   chat_type: string
   unread_msgs_count: number
+  last_message_id: number
 }
 
 export interface Message {
