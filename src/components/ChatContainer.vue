@@ -190,29 +190,11 @@
         </q-card-section>
       </q-card>
     </q-dialog>
-
-    <div
-      class="debug-window"
-      style="
-        border: 1px solid;
-        padding: 1rem;
-        position: absolute;
-        bottom: 1rem;
-        right: 1rem;
-        display: flex;
-        flex-direction: column;
-      "
-    >
-      <span>selected id: {{ selectedContactId ?? 'null' }}</span>
-      <span>current dialog id: {{ currentDialog?.data?.id ?? 'null' }}</span>
-      <span>current dialog users loaded: {{ currentDialog?.usersLoaded }}</span>
-      <span>current dialog messages loaded: {{ currentDialog?.messagesLoaded }}</span>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts" module>
-import { useTemplateRef, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { useTemplateRef, ref, watch } from 'vue'
 import { useElementSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 
@@ -231,8 +213,14 @@ const { wsConnectionStatus, chatHeaderData, error, loginStatus } = storeToRefs(s
 const { init, setChatHeaderData } = store
 // @ts-expect-error error
 const { contacts, currentDialog, messages, isChatLoading, cachedUsers } = storeToRefs(store.chat)
-const { loadMessages, searchContact, setChatLoading, sendMsg, createPrivateChat, fetchContacts } =
-  store.chat
+const {
+  getMessages,
+  searchContact,
+  setChatLoading,
+  sendMessage,
+  createPrivateChat,
+  fetchContacts,
+} = store.chat
 
 const dialogCnt = useTemplateRef('dialogCnt')
 
@@ -270,7 +258,7 @@ const onSearchResultClick = (searchResult: User) => {
 
   if (contact) {
     console.log(`enter existing chat with a guy`)
-    loadMessages(contact)
+    getMessages(contact)
   } else {
     console.log(`create a new chat with a guy`)
     createPrivateChat(contact.id)
@@ -281,7 +269,7 @@ const onSearchResultClick = (searchResult: User) => {
 
 const onContactClick = (contact: Contact) => {
   setChatLoading()
-  loadMessages(contact)
+  getMessages(contact)
   selectedContactId.value = contact.id
   setChatHeaderData({ title: contact.name })
 }
@@ -297,7 +285,7 @@ const onContactMode = () => {
 }
 
 const onSendMessage = () => {
-  sendMsg(message.value)
+  sendMessage(message.value)
   message.value = ''
 }
 

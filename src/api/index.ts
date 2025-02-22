@@ -50,7 +50,7 @@ export const getContacts = async (senderId: number, token: string, pubsub: strin
   }
 }
 
-export const getMessages = async (
+export const fetchMessages = async (
   senderId: number,
   token: string,
   chatId: number,
@@ -88,7 +88,7 @@ export const getMessages = async (
   }
 }
 
-export const getUsers = async (senderId: number, token: string, pubsub: string, data: []) => {
+export const fetchUsers = async (senderId: number, token: string, pubsub: string, data: []) => {
   try {
     await axios.post(
       `${API_BASE_URL}auth/req?pubsub=${pubsub}`,
@@ -115,7 +115,7 @@ export const getUsers = async (senderId: number, token: string, pubsub: string, 
   }
 }
 
-export const sendMessage = async (
+export const sendChatMessage = async (
   senderId: number,
   token: string,
   pubsub: string,

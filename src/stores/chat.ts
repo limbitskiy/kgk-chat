@@ -1,11 +1,11 @@
 import { defineStore, acceptHMRUpdate } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import {
   getContacts,
   contactSearch,
-  getMessages,
-  getUsers,
-  sendMessage,
+  fetchMessages,
+  fetchUsers,
+  sendChatMessage,
   startPrivateChat,
   getChatParticipants,
 } from 'src/api'
@@ -68,7 +68,7 @@ export const useChatStore = defineStore('chat', () => {
       const uncachedUsers = ids.filter((id) => !isUserCached(id))
 
       if (uncachedUsers?.length) {
-        fetchUsers(uncachedUsers)
+        getUsers(uncachedUsers)
       } else {
         state.value.currentDialog.usersLoaded = true
       }
@@ -90,12 +90,13 @@ export const useChatStore = defineStore('chat', () => {
   const watchCurrentDialog = () => {
     const unwatch = watch(
       currentDialog,
-      () => {
+      async () => {
         if (
           currentDialog.value.data &&
           currentDialog.value.messagesLoaded &&
           currentDialog.value.usersLoaded
         ) {
+          await nextTick()
           state.value.currentDialog.loading = false
           unwatch()
         }
@@ -129,10 +130,6 @@ export const useChatStore = defineStore('chat', () => {
     messageId?: number
   }) => {
     switch (type) {
-      // case 'enter-chat': {
-      //   return await enterChat(mainStore.user.value!.id, authStore.token!, chatId!, authStore.pubsub!)
-      // }
-
       case 'contact-search': {
         return await contactSearch(query, authStore.token!)
       }
@@ -142,7 +139,7 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       case 'get-messages': {
-        return await getMessages(
+        return await fetchMessages(
           mainStore.user!.id,
           authStore.token!,
           chatId!,
@@ -152,7 +149,7 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       case 'get-users': {
-        return await getUsers(
+        return await fetchUsers(
           mainStore.user!.id,
           authStore.token!,
           authStore.pubsub!,
@@ -170,15 +167,15 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       case 'send-message': {
-        if (currentDialog.value) {
-          return await sendMessage(
-            mainStore.user!.id,
-            authStore.token!,
-            authStore.pubsub!,
-            currentDialog.value.data!.id,
-            message,
-          )
-        }
+        // if (currentDialog.value) {
+        return await sendChatMessage(
+          mainStore.user!.id,
+          authStore.token!,
+          authStore.pubsub!,
+          currentDialog.value.data!.id,
+          message,
+        )
+        // }
       }
     }
   }
@@ -186,17 +183,17 @@ export const useChatStore = defineStore('chat', () => {
   // CHAT REQUESTS
   const createPrivateChat = (otherUserId: number) => {
     if (!isUserCached(otherUserId)) {
-      fetchUsers([otherUserId])
+      getUsers([otherUserId])
     }
     void chatRequest({ type: 'start-private-chat', payload: otherUserId })
   }
 
-  const fetchUsers = (ids: number[]) => {
+  const getUsers = (ids: number[]) => {
     const reformatted = ids.map((id) => ({ id }))
     void chatRequest({ type: 'get-users', payload: reformatted })
   }
 
-  const loadMessages = (contact: Contact) => {
+  const getMessages = (contact: Contact) => {
     void chatRequest({
       type: 'get-messages',
       chatId: contact.id,
@@ -204,7 +201,7 @@ export const useChatStore = defineStore('chat', () => {
     })
   }
 
-  const sendMsg = (message: string) => {
+  const sendMessage = (message: string) => {
     void chatRequest({ type: 'send-message', message })
   }
 
@@ -346,9 +343,9 @@ export const useChatStore = defineStore('chat', () => {
     fetchContacts,
     searchContact,
     updateStatus,
-    loadMessages,
     setChatLoading,
-    sendMsg,
+    sendMessage,
+    getMessages,
     createPrivateChat,
     onGetMessages,
     onGetUsers,
