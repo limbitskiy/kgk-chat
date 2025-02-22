@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login } from 'src/api'
+import { login as _login } from 'src/api'
 import { useMainStore } from 'src/stores/main'
 import { computed, ref } from 'vue'
 import wsService from 'src/services/ws'
@@ -26,15 +26,8 @@ export const useAuthStore = defineStore('auth', () => {
     state.value.pubsub = pubsub
   }
 
-  // ACTIONS
-
-  // TODO: separate http from ws connection
-  const appLogin = async () => {
-    const response = await login()
-
-    if (!response) {
-      return false
-    }
+  const login = async () => {
+    const response = await _login()
 
     const { pubsub, token, user } = response
 
@@ -42,11 +35,38 @@ export const useAuthStore = defineStore('auth', () => {
     mainStore.setUser(user)
     setToken(token)
     setPubSub(pubsub)
-
-    wsService.connect(pubsub)
-
-    return true
   }
+
+  const wsLogin = async () => {
+    if (!pubsub.value) {
+      console.error(`No pubsub`)
+      return
+    }
+
+    await wsService.connect(pubsub.value)
+  }
+
+  // ACTIONS
+
+  // TODO: separate http from ws connection
+  // const appLogin = async () => {
+  //   const response = await login()
+
+  //   if (!response) {
+  //     return false
+  //   }
+
+  //   const { pubsub, token, user } = response
+
+  //   // set data
+  //   mainStore.setUser(user)
+  //   setToken(token)
+  //   setPubSub(pubsub)
+
+  //   wsService.connect(pubsub)
+
+  //   return true
+  // }
 
   const appLogout = async () => {
     // await makeRequest()
@@ -55,5 +75,5 @@ export const useAuthStore = defineStore('auth', () => {
   const register = async () => {
     // not implemented yet
   }
-  return { pubsub, token, register, appLogin, appLogout }
+  return { pubsub, token, login, wsLogin }
 })

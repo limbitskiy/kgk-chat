@@ -118,7 +118,7 @@
           background-color: #e3e3e3;
         "
       >
-        <connection-status :status="connectionStatus" :ws="wsConnected" />
+        <connection-status :status="loginStatus" :ws="wsConnectionStatus" />
         <span style="font-size: 12px">v.{{ version }}</span>
       </div>
     </div>
@@ -227,7 +227,7 @@ import type { Contact, User } from 'src/types'
 
 const store = useMainStore()
 
-const { wsConnected, chatHeaderData, error, connectionStatus } = storeToRefs(store)
+const { wsConnectionStatus, chatHeaderData, error, loginStatus } = storeToRefs(store)
 const { init, setChatHeaderData } = store
 // @ts-expect-error error
 const { contacts, currentDialog, messages, isChatLoading, cachedUsers } = storeToRefs(store.chat)
@@ -262,7 +262,7 @@ const onSearchResultClick = (searchResult: User) => {
   // console.log(searchResult)
   // console.log(contacts?.value)
 
-  setChatLoading(true)
+  setChatLoading()
 
   selectedSearchResultId.value = searchResult.id
 
@@ -280,7 +280,7 @@ const onSearchResultClick = (searchResult: User) => {
 }
 
 const onContactClick = (contact: Contact) => {
-  setChatLoading(true)
+  setChatLoading()
   loadMessages(contact)
   selectedContactId.value = contact.id
   setChatHeaderData({ title: contact.name })
@@ -314,7 +314,7 @@ const getContactByUser = (user: User) => {
     .find((contact: Contact) => contact.priv_id === user.id)
 }
 
-init()
+void init()
 
 watch(contactSearchString, async (val) => {
   if (val?.length) {

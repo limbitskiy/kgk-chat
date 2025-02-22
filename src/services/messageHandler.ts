@@ -13,7 +13,7 @@ export const handleMessage = (data: {
     onGetUsers,
     onCreatePrivateChat,
     onGetChats,
-    onGetMessage,
+    onSendMessage,
     onSendNotification,
   } = store.chat
 
@@ -48,7 +48,7 @@ export const handleMessage = (data: {
     }
 
     case 'send message': {
-      onGetMessage(data.content.payload as { key: string; value: Message }[])
+      onSendMessage(data.content.payload as { key: string; value: Message }[])
       break
     }
 

@@ -4,6 +4,7 @@ import { useAuthStore } from 'src/stores/auth'
 import { useChatStore } from 'src/stores/chat'
 
 import type { User } from 'src/types'
+import { login } from 'src/api'
 
 export const useMainStore = defineStore('main', () => {
   const authStore = useAuthStore()
@@ -16,17 +17,17 @@ export const useMainStore = defineStore('main', () => {
       text: <string | null>null,
       timeout: <ReturnType<typeof setTimeout> | null>null,
     }),
-    wsConnected: ref(false),
-    connectionStatus: ref<'connecting' | 'connected' | 'error'>('connecting'),
     chatHeaderData: ref({ title: '', subtitle: '' }),
+    wsConnectionStatus: ref(false),
+    loginStatus: ref<'connecting' | 'connected' | 'error'>('connecting'),
   })
 
   // GETTERS
   const user = computed(() => state.value.user)
   const chatHeaderData = computed(() => state.value.chatHeaderData)
   const error = computed(() => state.value.error.text)
-  const wsConnected = computed(() => state.value.wsConnected)
-  const connectionStatus = computed(() => state.value.connectionStatus)
+  const wsConnectionStatus = computed(() => state.value.wsConnectionStatus)
+  const loginStatus = computed(() => state.value.loginStatus)
 
   // SETTERS
   const setUser = (user: User) => {
@@ -34,7 +35,7 @@ export const useMainStore = defineStore('main', () => {
   }
 
   const setWsConnected = (value: boolean) => {
-    state.value.wsConnected = value
+    state.value.wsConnectionStatus = value
   }
 
   const setChatHeaderData = ({ title, subtitle }: { title?: string; subtitle?: string }) => {
@@ -60,32 +61,48 @@ export const useMainStore = defineStore('main', () => {
     }, 3000)
   }
 
-  const init = () => {
-    state.value.connectionStatus = 'connecting'
+  const init = async () => {
+    state.value.loginStatus = 'connecting'
 
-    void authStore
-      .appLogin()
-      .then(() => {
-        state.value.connectionStatus = 'connected'
+    try {
+      await authStore.login()
+      state.value.loginStatus = 'connected'
+    } catch (error) {
+      state.value.loginStatus = 'error'
+      displayError(error as string)
 
-        chatStore.fetchContacts()
-      })
-      .catch((err) => {
-        state.value.connectionStatus = 'error'
-        displayError(err)
+      setTimeout(() => {
+        void init()
+      }, 5000)
+    }
 
-        setTimeout(() => {
-          init()
-        }, 5000)
-      })
+    await authStore.wsLogin()
+    chatStore.fetchContacts()
+
+    //  old version
+    //   void authStore
+    //     .appLogin()
+    //     .then(() => {
+    //       state.value.loginStatus = 'connected'
+
+    //       chatStore.fetchContacts()
+    //     })
+    //     .catch((err) => {
+    //       state.value.loginStatus = 'error'
+    //       displayError(err)
+
+    //       setTimeout(() => {
+    //         init()
+    //       }, 5000)
+    //     })
   }
 
   return {
     user,
-    wsConnected,
+    wsConnectionStatus,
     chatHeaderData,
     error,
-    connectionStatus,
+    loginStatus,
     chat: chatStore,
     init,
     setUser,

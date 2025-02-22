@@ -49,14 +49,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   //   ACTIONS
-  const onGetUsers = (userData: { key: string; value: User }[]) => {
-    userData.forEach((item) => {
-      state.value.cachedUsers[item.value.id] = item.value
-    })
-    state.value.currentDialog.usersLoaded = true
-  }
-
-  const setChatLoading = (value: boolean) => {
+  const setChatLoading = () => {
     resetCurrentDialog()
     state.value.currentDialog.loading = true
     watchCurrentDialog()
@@ -86,10 +79,6 @@ export const useChatStore = defineStore('chat', () => {
     state.value.currentDialog.data = dialogObject
   }
 
-  const addContact = (contact: Contact) => {
-    state.value.contacts.push(contact)
-  }
-
   const addMessage = (message: Message) => {
     state.value.currentDialog.data?.messages.push(message)
   }
@@ -98,21 +87,30 @@ export const useChatStore = defineStore('chat', () => {
     void getContacts(mainStore.user!.id, authStore.token!, authStore.pubsub!)
   }
 
-  const loadMessages = (contact: Contact) => {
-    void chatRequest({
-      type: 'get-messages',
-      chatId: contact.id,
-      messageId: contact.last_message_id,
-    })
+  const watchCurrentDialog = () => {
+    const unwatch = watch(
+      currentDialog,
+      () => {
+        if (
+          currentDialog.value.data &&
+          currentDialog.value.messagesLoaded &&
+          currentDialog.value.usersLoaded
+        ) {
+          state.value.currentDialog.loading = false
+          unwatch()
+        }
+      },
+      {
+        deep: true,
+      },
+    )
   }
 
-  const sendMsg = (message: string) => {
-    void chatRequest({ type: 'send-message', message })
-  }
-
-  const searchContact = async (query: string) => {
-    const results = await chatRequest({ type: 'contact-search', query })
-    return results.filter((resultUser: User) => resultUser.id != mainStore.user!.id)
+  const updateStatus = (contactId: number, status: 'online' | 'offline') => {
+    const foundContact = findContactByUser(contactId)
+    if (foundContact) {
+      foundContact.status = status
+    }
   }
 
   const chatRequest = async ({
@@ -185,16 +183,12 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  const getUserIdsFromMessages = (messages: Message[]) => {
-    const idSet = new Set()
-
-    messages.forEach((msg) => {
-      idSet.add(msg.sender_id)
-    })
-
-    idSet.delete(mainStore.user!.id)
-
-    return [...idSet] as number[]
+  // CHAT REQUESTS
+  const createPrivateChat = (otherUserId: number) => {
+    if (!isUserCached(otherUserId)) {
+      fetchUsers([otherUserId])
+    }
+    void chatRequest({ type: 'start-private-chat', payload: otherUserId })
   }
 
   const fetchUsers = (ids: number[]) => {
@@ -202,6 +196,24 @@ export const useChatStore = defineStore('chat', () => {
     void chatRequest({ type: 'get-users', payload: reformatted })
   }
 
+  const loadMessages = (contact: Contact) => {
+    void chatRequest({
+      type: 'get-messages',
+      chatId: contact.id,
+      messageId: contact.last_message_id,
+    })
+  }
+
+  const sendMsg = (message: string) => {
+    void chatRequest({ type: 'send-message', message })
+  }
+
+  const searchContact = async (query: string) => {
+    const results = await chatRequest({ type: 'contact-search', query })
+    return results.filter((resultUser: User) => resultUser.id != mainStore.user!.id)
+  }
+
+  // WS HANDLERS (6 total)
   const onGetMessages = (data: {
     status: string
     msg_id: number
@@ -214,30 +226,11 @@ export const useChatStore = defineStore('chat', () => {
     state.value.currentDialog.messagesLoaded = true
   }
 
-  const watchCurrentDialog = () => {
-    const unwatch = watch(
-      currentDialog,
-      () => {
-        if (
-          currentDialog.value.data &&
-          currentDialog.value.messagesLoaded &&
-          currentDialog.value.usersLoaded
-        ) {
-          state.value.currentDialog.loading = false
-          unwatch()
-        }
-      },
-      {
-        deep: true,
-      },
-    )
-  }
-
-  const createPrivateChat = (otherUserId: number) => {
-    if (!isUserCached(otherUserId)) {
-      fetchUsers([otherUserId])
-    }
-    void chatRequest({ type: 'start-private-chat', payload: otherUserId })
+  const onGetUsers = (userData: { key: string; value: User }[]) => {
+    userData.forEach((item) => {
+      state.value.cachedUsers[item.value.id] = item.value
+    })
+    state.value.currentDialog.usersLoaded = true
   }
 
   const onCreatePrivateChat = (data: { msg_id: number; payload: { value: Message }[] }) => {
@@ -287,7 +280,7 @@ export const useChatStore = defineStore('chat', () => {
     console.log(contacts.value)
   }
 
-  const onGetMessage = (messageData: { key: string; value: Message }[]) => {
+  const onSendMessage = (messageData: { key: string; value: Message }[]) => {
     const message = messageData[0]!.value
 
     if (message.chat_id === currentDialog.value.data?.id) {
@@ -311,6 +304,23 @@ export const useChatStore = defineStore('chat', () => {
     updateStatus(contactId, status)
   }
 
+  // HELPERS
+  const findContactByUser = (userId: number) => {
+    return contacts.value.find((contact) => contact.priv_id === userId)
+  }
+
+  const getUserIdsFromMessages = (messages: Message[]) => {
+    const idSet = new Set()
+
+    messages.forEach((msg) => {
+      idSet.add(msg.sender_id)
+    })
+
+    idSet.delete(mainStore.user!.id)
+
+    return [...idSet] as number[]
+  }
+
   const resetCurrentDialog = () => {
     state.value.currentDialog.loading = false
     state.value.currentDialog.usersLoaded = false
@@ -318,18 +328,11 @@ export const useChatStore = defineStore('chat', () => {
     state.value.currentDialog.data = null
   }
 
-  const updateStatus = (contactId: number, status: 'online' | 'offline') => {
-    const foundContact = findContactByUser(contactId)
-    if (foundContact) {
-      foundContact.status = status
-    }
-  }
-
-  const findContactByUser = (userId: number) => {
-    return contacts.value.find((contact) => contact.priv_id === userId)
-  }
-
   const isUserCached = (id: number) => !!cachedUsers.value[id]
+
+  // const addContact = (contact: Contact) => {
+  //   state.value.contacts.push(contact)
+  // }
 
   return {
     contacts,
@@ -349,7 +352,7 @@ export const useChatStore = defineStore('chat', () => {
     createPrivateChat,
     onGetMessages,
     onGetUsers,
-    onGetMessage,
+    onSendMessage,
     onCreatePrivateChat,
     onGetChats,
     onSendNotification,
