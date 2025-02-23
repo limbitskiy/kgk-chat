@@ -18,7 +18,7 @@
           v-model="contactSearchString"
           placeholder="Поиск.."
           style="width: 100%"
-          debounce="1000"
+          :debounce="settings.contactSearchDebounce"
           rounded
           outlined
           dense
@@ -225,6 +225,10 @@ const {
 const dialogCnt = useTemplateRef('dialogCnt')
 
 const { height: dialogCntHeight } = useElementSize(dialogCnt)
+
+const settings = ref({
+  contactSearchDebounce: 1000,
+})
 
 const searchMode = ref(false)
 const searchResults = ref<User[]>([])
